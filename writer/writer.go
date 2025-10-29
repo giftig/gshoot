@@ -9,7 +9,7 @@ import (
 )
 
 func WriteScreenshot(img image.Image, clock util.Clock) error {
-	path, err := ScreenshotPath(clock)
+	path, err := util.ScreenshotPath(clock)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"github.com/jasonlovesdoggo/displayindex"
 	"github.com/kbinani/screenshot"
 
 	"github.com/giftig/gshoot/util"
@@ -25,7 +26,7 @@ func runApp() {
 	clock := util.NewClock()
 
 	win := a.NewWindow("gshoot")
-	img := getScreenshot(0)
+	img := getScreenshot()
 	w := widget.NewScreenshotWidget(img, func(captured image.Image) {
 		slog.Info("Capture obtained")
 		win.Close()
@@ -49,7 +50,13 @@ func runApp() {
 	win.ShowAndRun()
 }
 
-func getScreenshot(displayNum int) image.Image {
+func getScreenshot() image.Image {
+	displayNum, err := displayindex.CurrentDisplayIndex()
+	if err != nil {
+		slog.Error("Could not find display index; defaulting to display 0")
+		displayNum = 0
+	}
+
 	scr, err := screenshot.CaptureRect(screenshot.GetDisplayBounds(displayNum))
 	if err != nil {
 		slog.Error("Failed to take screenshot")
