@@ -11,6 +11,8 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/giftig/gshoot/math"
 )
 
 var translucentColor = color.NRGBA{R: 0, G: 0, B: 0, A: 0xbb}
@@ -23,8 +25,8 @@ type SelectorWidget struct {
 	Rect  *canvas.Rectangle
 	Label *canvas.Text
 
-	Origin     *fyne.Position
-	Dimensions *fyne.Size
+	Origin *fyne.Position
+	Dest   *fyne.Position
 }
 
 type ScreenshotWidget struct {
@@ -59,26 +61,20 @@ func (w *ScreenshotWidget) MouseDown(e *desktop.MouseEvent) {
 	w.Selector.SetOrigin(fyne.NewPos(e.AbsolutePosition.X, e.AbsolutePosition.Y))
 }
 func (w *ScreenshotWidget) MouseUp(e *desktop.MouseEvent) {
-	if w.Selector.Origin != nil &&
-		w.Selector.Dimensions != nil &&
-		w.Selector.Dimensions.Width != 0 &&
-		w.Selector.Dimensions.Height != 0 {
-
-		w.capture(*w.Selector.Origin, *w.Selector.Dimensions)
+	if w.Selector.Origin != nil && w.Selector.Dest != nil {
+		w.capture(*w.Selector.Origin, *w.Selector.Dest)
 	}
 
 	w.Selector.Origin = nil
-	w.Selector.Dimensions = nil
-	w.Selector.Hide()
+	w.Selector.Dest = nil
+	w.Selector.RefreshDisplay()
 }
 func (w *ScreenshotWidget) MouseMoved(e *desktop.MouseEvent) {
 	if w.Selector.Origin == nil {
 		return
 	}
-	width := e.AbsolutePosition.X - w.Selector.Origin.X
-	height := e.AbsolutePosition.Y - w.Selector.Origin.Y
 
-	w.Selector.SetDimensions(fyne.NewSize(width, height))
+	w.Selector.SetDest(fyne.NewPos(e.AbsolutePosition.X, e.AbsolutePosition.Y))
 }
 func (w *ScreenshotWidget) MouseIn(e *desktop.MouseEvent) {}
 func (w *ScreenshotWidget) MouseOut()                     {}
@@ -89,15 +85,13 @@ func (w *ScreenshotWidget) Cursor() desktop.Cursor {
 
 // Commit the screenshot selection, cropping the full screenshot image down to the specified area
 // Call the OnCapture function with the result
-func (w *ScreenshotWidget) capture(origin fyne.Position, dim fyne.Size) {
+func (w *ScreenshotWidget) capture(origin fyne.Position, dest fyne.Position) {
 	// SubImage isn't part of the Image interface so it needs to be type-asserted to an interface
 	// containing SubImage. In practice this is almost all types of image.
 	subimage := w.Image.(interface {
 		SubImage(r image.Rectangle) image.Image
 	})
-	cropped := subimage.SubImage(
-		image.Rect(int(origin.X), int(origin.Y), int(origin.X+dim.Width), int(origin.Y+dim.Height)),
-	)
+	cropped := subimage.SubImage(image.Rect(int(origin.X), int(origin.Y), int(dest.X), int(dest.Y)))
 	w.OnCapture(cropped)
 }
 
@@ -109,10 +103,10 @@ func NewSelectorWidget() *SelectorWidget {
 	label := canvas.NewText("0 x 0", textColor)
 
 	w := &SelectorWidget{
-		Rect:       rect,
-		Label:      label,
-		Origin:     nil,
-		Dimensions: nil,
+		Rect:   rect,
+		Label:  label,
+		Origin: nil,
+		Dest:   nil,
 	}
 	w.ExtendBaseWidget(w)
 
@@ -125,22 +119,38 @@ func (w *SelectorWidget) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(content)
 }
 
+func (w *SelectorWidget) GetBounds() (fyne.Position, fyne.Size) {
+	if w.Origin == nil || w.Dest == nil {
+		return fyne.NewPos(0, 0), fyne.NewSize(0, 0)
+	}
+
+	x := math.Min(w.Origin.X, w.Dest.X)
+	y := math.Min(w.Origin.Y, w.Dest.Y)
+	width := math.Abs(w.Origin.X - w.Dest.X)
+	height := math.Abs(w.Origin.Y - w.Dest.Y)
+
+	return fyne.NewPos(x, y), fyne.NewSize(width, height)
+}
+
 func (w *SelectorWidget) SetOrigin(origin fyne.Position) {
 	w.Origin = &origin
-	w.Move(*w.Origin)
+	w.RefreshDisplay()
 }
 
-func (w *SelectorWidget) SetDimensions(dimensions fyne.Size) {
-	w.Dimensions = &dimensions
-	w.Resize(*w.Dimensions)
-	w.Rect.SetMinSize(*w.Dimensions)
-	w.Label.Text = fmt.Sprintf("%d x %d", int32(w.Dimensions.Width), int32(w.Dimensions.Height))
-	w.RefreshVisibility()
+func (w *SelectorWidget) SetDest(dest fyne.Position) {
+	w.Dest = &dest
+	w.RefreshDisplay()
 }
 
-// Set to visible if the selector has origin and dimensions, otherwise set invisible
-func (w *SelectorWidget) RefreshVisibility() {
-	if w.Origin != nil && w.Dimensions != nil && w.Dimensions.Width > 0 && w.Dimensions.Height > 0 {
+// Recalculate dimensions based on updated origin or destination
+func (w *SelectorWidget) RefreshDisplay() {
+	pos, size := w.GetBounds()
+	w.Move(pos)
+	w.Resize(size)
+	w.Rect.SetMinSize(size)
+	w.Label.Text = fmt.Sprintf("%d x %d", int32(size.Width), int32(size.Height))
+
+	if size.Width != 0 && size.Height != 0 {
 		w.Show()
 	} else {
 		w.Hide()
