@@ -59,7 +59,11 @@ func (w *ScreenshotWidget) MouseDown(e *desktop.MouseEvent) {
 	w.Selector.SetOrigin(fyne.NewPos(e.AbsolutePosition.X, e.AbsolutePosition.Y))
 }
 func (w *ScreenshotWidget) MouseUp(e *desktop.MouseEvent) {
-	if w.Selector.Origin != nil && w.Selector.Dimensions != nil {
+	if w.Selector.Origin != nil &&
+		w.Selector.Dimensions != nil &&
+		w.Selector.Dimensions.Width != 0 &&
+		w.Selector.Dimensions.Height != 0 {
+
 		w.capture(*w.Selector.Origin, *w.Selector.Dimensions)
 	}
 
