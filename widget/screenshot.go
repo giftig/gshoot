@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/giftig/gshoot/config"
 	"github.com/giftig/gshoot/math"
 )
 
@@ -35,14 +36,22 @@ type ScreenshotWidget struct {
 	Image    image.Image
 	Selector *SelectorWidget
 
-	OnCapture func(image.Image)
+	OnCapture  func(image.Image, config.EditConfig)
+	OnAbort    func()
+	EditConfig config.EditConfig
 }
 
-func NewScreenshotWidget(img image.Image, onCapture func(image.Image)) *ScreenshotWidget {
+func NewScreenshotWidget(
+	img image.Image,
+	onCapture func(image.Image, config.EditConfig),
+	onAbort func(),
+) *ScreenshotWidget {
 	w := &ScreenshotWidget{
-		Image:     img,
-		Selector:  NewSelectorWidget(),
-		OnCapture: onCapture,
+		Image:      img,
+		Selector:   NewSelectorWidget(),
+		OnCapture:  onCapture,
+		OnAbort:    onAbort,
+		EditConfig: config.EditConfig{PostEdit: false},
 	}
 	w.ExtendBaseWidget(w)
 	return w
@@ -85,6 +94,27 @@ func (w *ScreenshotWidget) MouseMoved(e *desktop.MouseEvent) {
 func (w *ScreenshotWidget) MouseIn(e *desktop.MouseEvent) {}
 func (w *ScreenshotWidget) MouseOut()                     {}
 
+// Alt-drag triggers opening the screenshot in an image editor after capture
+func (w *ScreenshotWidget) KeyDown(e *fyne.KeyEvent) {
+	if e.Name == "LeftAlt" {
+		w.EditConfig.PostEdit = true
+	}
+}
+func (w *ScreenshotWidget) KeyUp(e *fyne.KeyEvent) {
+	if e.Name == "LeftAlt" {
+		w.EditConfig.PostEdit = false
+	}
+}
+
+func (w *ScreenshotWidget) FocusGained()     {}
+func (w *ScreenshotWidget) FocusLost()       {}
+func (w *ScreenshotWidget) TypedRune(r rune) {}
+func (w *ScreenshotWidget) TypedKey(e *fyne.KeyEvent) {
+	if e.Name == "Escape" {
+		w.OnAbort()
+	}
+}
+
 func (w *ScreenshotWidget) Cursor() desktop.Cursor {
 	return desktop.CrosshairCursor
 }
@@ -98,7 +128,7 @@ func (w *ScreenshotWidget) capture(origin fyne.Position, dest fyne.Position) {
 		SubImage(r image.Rectangle) image.Image
 	})
 	cropped := subimage.SubImage(image.Rect(int(origin.X), int(origin.Y), int(dest.X), int(dest.Y)))
-	w.OnCapture(cropped)
+	w.OnCapture(cropped, w.EditConfig)
 }
 
 func NewSelectorWidget() *SelectorWidget {

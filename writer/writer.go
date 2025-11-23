@@ -8,17 +8,22 @@ import (
 	"github.com/giftig/gshoot/util"
 )
 
-func WriteScreenshot(img image.Image, clock util.Clock) error {
+func WriteScreenshot(img image.Image, clock util.Clock) (string, error) {
 	path, err := util.ScreenshotPath(clock)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
 
-	return png.Encode(f, img)
+	err = png.Encode(f, img)
+	if err != nil {
+		return "", err
+	}
+
+	return path, nil
 }
