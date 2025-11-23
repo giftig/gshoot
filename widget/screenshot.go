@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"log/slog"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/giftig/gshoot/config"
 	"github.com/giftig/gshoot/math"
 )
 
@@ -35,14 +37,19 @@ type ScreenshotWidget struct {
 	Image    image.Image
 	Selector *SelectorWidget
 
-	OnCapture func(image.Image)
+	OnCapture  func(image.Image, config.EditConfig)
+	EditConfig config.EditConfig
 }
 
-func NewScreenshotWidget(img image.Image, onCapture func(image.Image)) *ScreenshotWidget {
+func NewScreenshotWidget(
+	img image.Image,
+	onCapture func(image.Image, config.EditConfig),
+) *ScreenshotWidget {
 	w := &ScreenshotWidget{
-		Image:     img,
-		Selector:  NewSelectorWidget(),
-		OnCapture: onCapture,
+		Image:      img,
+		Selector:   NewSelectorWidget(),
+		OnCapture:  onCapture,
+		EditConfig: config.EditConfig{PostEdit: false},
 	}
 	w.ExtendBaseWidget(w)
 	return w
@@ -85,6 +92,27 @@ func (w *ScreenshotWidget) MouseMoved(e *desktop.MouseEvent) {
 func (w *ScreenshotWidget) MouseIn(e *desktop.MouseEvent) {}
 func (w *ScreenshotWidget) MouseOut()                     {}
 
+// Alt-drag triggers opening the screenshot in an image editor after capture
+func (w *ScreenshotWidget) KeyDown(e *fyne.KeyEvent) {
+	slog.Error("WTF")
+	fmt.Printf("Key down: %s", e.Name)
+	if e.Name == "alt" {
+		w.EditConfig.PostEdit = true
+	}
+}
+func (w *ScreenshotWidget) KeyUp(e *fyne.KeyEvent) {
+	if e.Name == "alt" {
+		w.EditConfig.PostEdit = false
+	}
+}
+
+func (w *ScreenshotWidget) FocusGained()     {}
+func (w *ScreenshotWidget) FocusLost()       {}
+func (w *ScreenshotWidget) TypedRune(r rune) {}
+func (w *ScreenshotWidget) TypedKey(e *fyne.KeyEvent) {
+	fmt.Printf("Key typed: %s", e.Name)
+}
+
 func (w *ScreenshotWidget) Cursor() desktop.Cursor {
 	return desktop.CrosshairCursor
 }
@@ -98,7 +126,7 @@ func (w *ScreenshotWidget) capture(origin fyne.Position, dest fyne.Position) {
 		SubImage(r image.Rectangle) image.Image
 	})
 	cropped := subimage.SubImage(image.Rect(int(origin.X), int(origin.Y), int(dest.X), int(dest.Y)))
-	w.OnCapture(cropped)
+	w.OnCapture(cropped, w.EditConfig)
 }
 
 func NewSelectorWidget() *SelectorWidget {

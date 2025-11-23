@@ -10,6 +10,7 @@ import (
 	"github.com/jasonlovesdoggo/displayindex"
 	"github.com/kbinani/screenshot"
 
+	"github.com/giftig/gshoot/config"
 	"github.com/giftig/gshoot/util"
 	"github.com/giftig/gshoot/widget"
 	"github.com/giftig/gshoot/writer"
@@ -27,7 +28,7 @@ func runApp() {
 
 	win := a.NewWindow("gshoot")
 	img := getScreenshot()
-	w := widget.NewScreenshotWidget(img, func(captured image.Image) {
+	w := widget.NewScreenshotWidget(img, func(captured image.Image, cfg config.EditConfig) {
 		slog.Info("Capture obtained")
 		win.Close()
 		err := writer.WriteScreenshot(captured, clock)
