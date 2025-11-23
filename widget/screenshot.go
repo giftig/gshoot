@@ -58,9 +58,15 @@ func (w *ScreenshotWidget) CreateRenderer() fyne.WidgetRenderer {
 }
 
 func (w *ScreenshotWidget) MouseDown(e *desktop.MouseEvent) {
+	if e.Button != desktop.MouseButtonPrimary {
+		return
+	}
 	w.Selector.SetOrigin(fyne.NewPos(e.AbsolutePosition.X, e.AbsolutePosition.Y))
 }
 func (w *ScreenshotWidget) MouseUp(e *desktop.MouseEvent) {
+	if e.Button != desktop.MouseButtonPrimary {
+		return
+	}
 	if w.Selector.Origin != nil && w.Selector.Dest != nil {
 		w.capture(*w.Selector.Origin, *w.Selector.Dest)
 	}
